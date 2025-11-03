@@ -1,0 +1,22 @@
+# Rust build artifacts
+/target/
+/**/target/
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs and temp
+*.log
+tmp/
+*.tmp
+
+# Project-specific
+/hashlib_assistant.md
+/hashlib_com.md
