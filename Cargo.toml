@@ -2,7 +2,7 @@
 name = "RsHash"
 version = "0.1.0"
 edition = "2025"
-authors = "BERTELOOT Antoine"
+authors = ["BERTELOOT Antoine"]
 description = "Fast cryptographic hash functions for Python"
 license = "MIT"
 keywords = ["hash", "sha256", "sha512", "cryptography", "python"]
