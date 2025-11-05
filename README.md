@@ -8,6 +8,36 @@ Fast cryptographic hash functions in Rust for Python.
 
 High-performance SHA-256 and SHA-512 with a hashlib-compatible API. Pure Rust implementation following FIPS 180-4.
 
+## Benchmark Results
+
+### Average Times (ms)
+| Data Size | hashlib 256 | RsHash 256 | hashlib 512 | RsHash 512 |
+|---:|---:|---:|---:|---:|
+| 512 B  | 0.005 | 0.010 | 0.006 | 0.026 |
+| 1 KB   | 0.003 | 0.027 | 0.008 | 0.026 |
+| 10 KB  | 0.020 | 0.096 | 0.031 | 0.088 |
+| 100 KB | 0.122 | 0.463 | 0.157 | 0.297 |
+| 512 KB | 0.347 | 2.507 | 1.848 | 1.956 |
+| 1 MB   | 0.699 | 8.354 | 3.393 | 4.644 |
+| 4 MB   | 3.044 | 21.792 | 10.722 | 12.194 |
+| 16 MB  | 19.779 | 73.476 | 28.720 | 53.928 |
+
+### Throughput (MB/s)
+| Data Size | hashlib 256 | RsHash 256 | hashlib 512 | RsHash 512 |
+|---:|---:|---:|---:|---:|
+| 512 B  | 105.37 | 49.38  | 82.22  | 18.78  |
+| 1 KB   | 374.16 | 36.34  | 123.11 | 37.73  |
+| 10 KB  | 482.13 | 101.45 | 318.63 | 111.50 |
+| 100 KB | 801.41 | 210.95 | 622.48 | 329.24 |
+| 512 KB | 1439.09| 199.42 | 270.56 | 255.59 |
+| 1 MB   | 1431.19| 119.70 | 294.75 | 215.35 |
+| 4 MB   | 1313.95| 183.56 | 373.07 | 328.03 |
+| 16 MB  | 808.93 | 217.76 | 557.10 | 296.69 |
+
+### Overall Performance Ratio (RsHash / hashlib)
+- SHA-256: RsHash is 0.21x slower on average  
+- SHA-512: RsHash is 0.56x slower on average
+
 ## Installation
 
 ```bash
