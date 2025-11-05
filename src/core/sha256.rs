@@ -16,10 +16,12 @@
 /// SHA-256 hasher state.
 ///
 /// Maintains the internal state for incremental hashing.
+/// Uses a fixed-size buffer for optimal streaming performance.
 pub struct Sha256 {
     state: [u32; 8],
-    buffer: Vec<u8>,
-    length: u64,
+    buffer: [u8; 64],      // Fixed 64-byte buffer (1 block)
+    buffer_len: usize,      // Number of bytes currently in buffer
+    total_len: u64,         // Total bytes processed (for final length)
 }
 
 impl Sha256 {
@@ -42,21 +44,51 @@ impl Sha256 {
                 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
                 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
             ],
-            buffer: Vec::new(),
-            length: 0,
+            buffer: [0u8; 64],
+            buffer_len: 0,
+            total_len: 0,
         }
     }
 
     /// Feeds data into the hasher.
     ///
-    /// Processes complete 512-bit blocks immediately, buffering remaining bytes.
+    /// Processes complete 512-bit blocks immediately with zero-copy streaming.
+    /// Only incomplete blocks (< 64 bytes) are buffered.
     pub fn update(&mut self, data: &[u8]) {
-        self.length += data.len() as u64;
-        self.buffer.extend_from_slice(data);
-
-        while self.buffer.len() >= 64 {
-            let block: [u8; 64] = self.buffer.drain(..64).collect::<Vec<u8>>().try_into().unwrap();
+        self.total_len += data.len() as u64;
+        let mut offset = 0;
+        
+        // If buffer has partial data, try to complete it first
+        if self.buffer_len > 0 {
+            let to_fill = 64 - self.buffer_len;
+            let available = data.len().min(to_fill);
+            
+            self.buffer[self.buffer_len..self.buffer_len + available]
+                .copy_from_slice(&data[..available]);
+            
+            self.buffer_len += available;
+            offset += available;
+            
+            // If buffer is now full, process it immediately
+            if self.buffer_len == 64 {
+                let block_copy = self.buffer;
+                self.process_block(&block_copy);
+                self.buffer_len = 0;
+            }
+        }
+        
+        // Process complete 64-byte blocks directly from input (zero-copy!)
+        while offset + 64 <= data.len() {
+            let block: [u8; 64] = data[offset..offset + 64].try_into().unwrap();
             self.process_block(&block);
+            offset += 64;
+        }
+        
+        // Buffer any remaining bytes (< 64)
+        let remaining = data.len() - offset;
+        if remaining > 0 {
+            self.buffer[..remaining].copy_from_slice(&data[offset..]);
+            self.buffer_len = remaining;
         }
     }
 
@@ -64,25 +96,34 @@ impl Sha256 {
     ///
     /// Applies padding, processes remaining blocks, and outputs the final 256-bit digest.
     pub fn finalize(&mut self) -> [u8; 32] {
+        let bit_len = self.total_len * 8;
+        
+        // Add padding: 0x80 byte followed by zeros
+        self.buffer[self.buffer_len] = 0x80;
+        self.buffer_len += 1;
+        
+        // If not enough space for length (need 8 bytes), pad and process block
+        if self.buffer_len > 56 {
+            // Fill rest with zeros and process
+            self.buffer[self.buffer_len..].fill(0);
+            let block_copy = self.buffer;
+            self.process_block(&block_copy);
+            self.buffer.fill(0);
+            self.buffer_len = 0;
+        }
+        
+        // Pad with zeros until 56 bytes
+        self.buffer[self.buffer_len..56].fill(0);
+        
+        // Append length as big-endian 64-bit integer
+        self.buffer[56..64].copy_from_slice(&bit_len.to_be_bytes());
+        
+        // Process final block
+        let block_copy = self.buffer;
+        self.process_block(&block_copy);
+        
+        // Extract result from state
         let mut result = [0u8; 32];
-        
-        let bit_len = self.length * 8;
-        self.buffer.push(0x80);
-        
-        while (self.buffer.len() % 64) != 56 {
-            self.buffer.push(0x00);
-        }
-        
-        self.buffer.extend_from_slice(&bit_len.to_be_bytes());
-        
-        let buffer = self.buffer.clone();
-        for chunk in buffer.chunks(64) {
-            if chunk.len() == 64 {
-                let block: [u8; 64] = chunk.try_into().unwrap();
-                self.process_block(&block);
-            }
-        }
-        
         for (i, &word) in self.state.iter().enumerate() {
             result[i * 4..(i + 1) * 4].copy_from_slice(&word.to_be_bytes());
         }
